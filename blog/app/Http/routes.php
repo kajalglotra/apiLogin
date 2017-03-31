@@ -2,4 +2,6 @@
 Route::get('/', function () {
     return view('welcome');
 });
-Route::get('/mainController', 'AjaxController@login');
+
+Route::post('/mainController', 'AjaxController@mainController');
+     

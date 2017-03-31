@@ -3,21 +3,25 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-
+use JWTAuth;
+use JWTFactory;
 use App\Http\Requests;
-
 use App\Http\Controllers\Controller;
 
 use Illuminate\Support\Facades\DB;
 
 class AjaxController extends Controller
 {  
-    public static function login(Request $request) {
-        if($_GET['action']=='login')
+    public  function mainController(Request $request) {
+        if($_POST['action']=='login')
         {
-    	$username=$_GET['username'];
-    	$password=$_GET['password'];
-    	$status  =$_GET['status'];
+    	return $this->login( $request);
+        }
+   }
+   public  function login( $request){
+    $username=$_POST['username'];
+        $password=$_POST['password'];
+        $status  =$_POST['status'];
         $r_error = 1;
         $userid='';
         $r_message = "";
@@ -46,16 +50,12 @@ class AjaxController extends Controller
              $name    =$userprofile->name;
              $jobtitle=$userprofile->jobtitle;
              $login_time=time();
-
-             $array[] = $userid;
-             $array[] = $username;
-             $array[] = $role;
-             $array[] = $name;
-             $array[] = $jobtitle;
-             $array[] = $login_time;
-             $array1[$userid]=$array;
             };
-            if ($userid == '')
+           $customClaims = ['userid' => $userid, 'username' => $username , 'login_time' =>time()];
+           $payload = JWTFactory::make($customClaims);
+           $token = JWTAuth::encode($payload);
+           $token1 =JWTAuth::decode($token);
+          if ($userid == '')
             {
                 $r_message = "Invalid Login"; 
             } 
@@ -68,8 +68,8 @@ class AjaxController extends Controller
         $return = array();
         $return['error'] = $r_error;
         $return['message'] = $r_message;
-        $return['data'] = json_encode($array1);
-        return $return;
-    }
-   }
-}
+        $return['data'] = ($array1);
+        $return['token'] =($token);
+        $return['token1']=$token1;
+        return ($return);
+    }}
