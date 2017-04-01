@@ -7,6 +7,7 @@ use JWTAuth;
 use JWTFactory;
 use App\Http\Requests;
 use App\Http\Controllers\Controller;
+use App\Login_token;
 
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +18,12 @@ class AjaxController extends Controller
         {
     	return $this->login( $request);
         }
-   }
+        else if($_POST['action']=='logout')
+        {
+            return $this->logout();
+        }
+    }
+    //login function
    public  function login( $request){
     $username=$_POST['username'];
         $password=$_POST['password'];
@@ -27,8 +33,9 @@ class AjaxController extends Controller
         $r_message = "";
         $r_data = array();
         $userinfos = DB::table('userinfos')->where('username', '=', $username)->where('password', '=', $password)->where('status', '=', 'enable')->get();
-         foreach ($userinfos as $userinfo) {
-             $userid = $userinfo->id;
+        foreach ($userinfos as $userinfo) 
+        {
+            $userid = $userinfo->id;
             $username= $userinfo->username;
         }
         if ($userid == '')
@@ -49,12 +56,18 @@ class AjaxController extends Controller
              $role    =$userprofile->gender;
              $name    =$userprofile->name;
              $jobtitle=$userprofile->jobtitle;
+             $login_date_time=date('d-M-Y H:i:s');
              $login_time=time();
             };
-           $customClaims = ['userid' => $userid, 'username' => $username , 'login_time' =>time()];
-           $payload = JWTFactory::make($customClaims);
+           $JwtFactory = ['userid' => $userid, 'username' => $username , 'login_time' =>$login_time ,'login_date_time' => $login_date_time];
+           $payload = JWTFactory::make($JwtFactory);
            $token = JWTAuth::encode($payload);
-           $token1 =JWTAuth::decode($token);
+           $login_token=new login_token;
+           $login_token->userid=$userid;
+           $login_token->token=$token;
+           $login_token->creation_timestamp =$login_time;
+           $login_token->creation_date_time =$login_date_time;
+           $login_token->save();
           if ($userid == '')
             {
                 $r_message = "Invalid Login"; 
@@ -69,7 +82,18 @@ class AjaxController extends Controller
         $return['error'] = $r_error;
         $return['message'] = $r_message;
         $return['data'] = ($array1);
-        $return['token'] =($token);
-        $return['token1']=$token1;
-        return ($return);
-    }}
+        return json_encode($return);
+    }
+
+     //logout function
+     public static function logout() {
+        $token=$_POST['token'];
+        $login= DB::table('login_tokens')->where('token', '=', $token)->delete();
+        $return = array();
+        $return['error'] = 0;
+        $r_data = array();
+        $r_data['message'] = 'Successfully logout';
+        $return['data'] = $r_data;
+        return $return;
+    }
+}
