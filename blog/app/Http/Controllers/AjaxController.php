@@ -14,24 +14,35 @@ use Illuminate\Support\Facades\DB;
 class AjaxController extends Controller
 {  
     public  function mainController(Request $request) {
+        
+        $res = array(
+    'error' => 1,
+    'data' => array()
+      );
+
         if($_POST['action']=='login')
         {
-    	return $this->login( $request);
+    	$res =  $this->login( $request);
         }
         else if($_POST['action']=='logout')
         {
-            return $this->logout();
+            $res = $this->logout();
         }
+
+        return json_encode($res);
+
     }
-    //login function
+
+   //login function
+
    public  function login( $request){
-    $username=$_POST['username'];
-        $password=$_POST['password'];
-        $status  =$_POST['status'];
         $r_error = 1;
-        $userid='';
         $r_message = "";
         $r_data = array();
+        $username=$_POST['username'];
+        $password=$_POST['password'];
+        $status  =$_POST['status'];
+         $userid='';
         $userinfos = DB::table('userinfos')->where('username', '=', $username)->where('password', '=', $password)->where('status', '=', 'enable')->get();
         foreach ($userinfos as $userinfo) 
         {
@@ -42,33 +53,29 @@ class AjaxController extends Controller
         {
             $r_error = 1;
             $r_message = "Invalid Login";
+
         } 
         else 
         {
           $userprofiles = DB::table('userprofiles')->where('userinfo_id', '=', $userid)->get();
           $userid='';
-          $array1 = array();
           foreach ($userprofiles as $userprofile) 
           {
-             $array = array();
-             $userid = $userprofile->id;
-             $username= $userprofile->name;
-             $role    =$userprofile->gender;
-             $name    =$userprofile->name;
-             $jobtitle=$userprofile->jobtitle;
-             $login_date_time=date('d-M-Y H:i:s');
-             $login_time=time();
+             $array1 = array(
+             'userid'      => $userprofile->id,
+             'profileName' => $userprofile->name,
+             'gender'      => $userprofile->gender,
+             'jobtitle'    => $userprofile->jobtitle,
+             'date'        => date('d-M-Y H:i:s'),
+             'time'        => time()
+             );
             };
-           $JwtFactory = ['userid' => $userid, 'username' => $username , 'login_time' =>$login_time ,'login_date_time' => $login_date_time];
-           $payload = JWTFactory::make($JwtFactory);
+           $customClaims= ['usr' => $array1['userid']];
+           $payload = JWTFactory::make($array1, $customClaims);
            $token = JWTAuth::encode($payload);
-           $login_token=new login_token;
-           $login_token->userid=$userid;
-           $login_token->token=$token;
-           $login_token->creation_timestamp =$login_time;
-           $login_token->creation_date_time =$login_date_time;
-           $login_token->save();
-          if ($userid == '')
+           //to insert the data in the table
+           $this->insertToken($array1['userid'], $token);
+            if ($array1['userid'] == '')
             {
                 $r_message = "Invalid Login"; 
             } 
@@ -76,24 +83,47 @@ class AjaxController extends Controller
             {
                 $r_error = 0;
                 $r_message = "Success Login";
+
+                $login_tokens = DB::table('login_tokens')->where('userid', '=', $array1['userid'])->get();
+               foreach ($login_tokens as $login_token) 
+                {
+                    $token=$login_token->token;
+                }
+                $r_data = array
+                (
+                    "token" => $token
+                );
             }
         }
-        $return = array();
-        $return['error'] = $r_error;
-        $return['message'] = $r_message;
-        $return['data'] = ($array1);
-        return json_encode($return);
+       $result = array();   
+       $result['error'] = $r_error; 
+       $result['message'] = $r_message;
+       $result['data'] = $r_data;
+        return ($result);
+    }
+    //logout function
+    public static function logout() {
+     $token=$_POST['token'];
+     $login= DB::table('login_tokens')->where('token', '=', $token)->delete();
+     $return = array();
+     $return['error'] = 0;
+     $r_data = array();
+     $r_data['message'] = 'Successfully logout';
+     $return['data'] = $r_data;
+     return $return;
     }
 
-     //logout function
-     public static function logout() {
-        $token=$_POST['token'];
-        $login= DB::table('login_tokens')->where('token', '=', $token)->delete();
-        $return = array();
-        $return['error'] = 0;
-        $r_data = array();
-        $r_data['message'] = 'Successfully logout';
-        $return['data'] = $r_data;
-        return $return;
+    //insert in the table
+     public static function insertToken($userid, $token) {
+       
+       $creation_timestamp = time();
+       $creation_date_time = date('d-M-Y H:i:s');
+       $login_token=new login_token;
+       $login_token->userid=$userid;
+       $login_token->token=$token;
+       $login_token->creation_timestamp =$creation_timestamp;
+       $login_token->creation_date_time =$creation_date_time;
+       $login_token->save();
+        return true;
     }
 }
