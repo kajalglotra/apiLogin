@@ -1,6 +1,6 @@
 <?php
 Route::get('/', function () {
-    return view('welcome');
+    echo "Hello";
 });
 
 Route::post('/mainController', 'AjaxController@mainController');
