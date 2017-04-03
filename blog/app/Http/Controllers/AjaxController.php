@@ -8,25 +8,29 @@ use JWTFactory;
 use App\Http\Requests;
 use App\Http\Controllers\Controller;
 use App\Login_token;
-
 use Illuminate\Support\Facades\DB;
 
 class AjaxController extends Controller
 {  
     public  function mainController(Request $request) {
         
-        $res = array(
+    $res = array
+    (
     'error' => 1,
     'data' => array()
-      );
+    );
 
-        if($_POST['action']=='login')
+        if($request['action']=='login')
         {
     	$res =  $this->login( $request);
         }
-        else if($_POST['action']=='logout')
+        else if($request['action']=='logout')
         {
-            $res = $this->logout();
+            $res = $this->logout( $request);
+        }
+        else if($request['action']=='forgot_password')
+        {
+            $res = $this->forgotPassword( $request);
         }
 
         return json_encode($res);
@@ -39,9 +43,9 @@ class AjaxController extends Controller
         $r_error = 1;
         $r_message = "";
         $r_data = array();
-        $username=$_POST['username'];
-        $password=$_POST['password'];
-        $status  =$_POST['status'];
+        $username=$request['username'];
+        $password=$request['password'];
+        $status  =$request['status'];
          $userid='';
         $userinfos = DB::table('userinfos')->where('username', '=', $username)->where('password', '=', $password)->where('status', '=', 'enable')->get();
         foreach ($userinfos as $userinfo) 
@@ -102,8 +106,8 @@ class AjaxController extends Controller
         return ($result);
     }
     //logout function
-    public static function logout() {
-     $token=$_POST['token'];
+    public static function logout($request) {
+     $token=$request['token'];
      $login= DB::table('login_tokens')->where('token', '=', $token)->delete();
      $return = array();
      $return['error'] = 0;
@@ -125,5 +129,57 @@ class AjaxController extends Controller
        $login_token->creation_date_time =$creation_date_time;
        $login_token->save();
         return true;
+    }
+
+    //forgotPassword code
+    public static function forgotPassword($request) {
+
+        $r_error = 1;
+        $r_message = "";
+        $r_data = array();
+        $username=$request['username'];
+         
+        if ($username == 'global_guest') {
+            $r_message = "You don't have permission to reset password !!";
+        } 
+        else 
+        {
+          $userinfos =  DB::table('userinfos')->where('username', '=', $username)->count();
+          if ($userinfos == 0) {
+              $r_message ="Username not exists!!";
+            } 
+            else 
+            {
+             $userinfos =  DB::table('userinfos')->where('username', '=', $username)->get();
+             foreach ($userinfos as $userinfo)
+               {
+                 $userId = $userinfo->id;
+                 $status = $userinfo->status;
+                  $type =  $userinfo->type;
+               }
+               if ($type != 'Employee') {
+                    $r_message = "You can't reset pasword. Contact Admin.!!";
+                } 
+                else
+                {
+                  if ($status != 'Enable') 
+                   {
+                     $r_message = "Employee is disabled!!";
+                    } 
+                    else 
+                    {
+                        $newPassword  = str_random(8);
+                        DB::table('userinfos')->where('username', '=', $username)->update(['password' => $newPassword]);
+                        $r_error = 0;
+                        $r_message = $newPassword;
+                    }
+                }
+            }
+        }
+       $result = array();   
+       $result['error'] = $r_error; 
+       $result['message'] = $r_message;
+       $result['data'] = $r_data;
+        return ($result);
     }
 }
